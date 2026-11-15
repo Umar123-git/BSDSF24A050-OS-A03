@@ -5,6 +5,17 @@ int main() {
     char** arglist;
 
     while ((cmdline = read_cmd(PROMPT, stdin)) != NULL) {
+        // !n: replace with n-th history command before tokenizing/storing
+        if (cmdline[0] == '!') {
+            char* expanded = history_expand(cmdline);
+            free(cmdline);
+            if (expanded == NULL) continue;
+            cmdline = expanded;
+            printf("%s\n", cmdline);
+        }
+
+        if (cmdline[0] != '\0') add_to_history(cmdline);
+
         if ((arglist = tokenize(cmdline)) != NULL) {
             if (handle_builtin(arglist) == 0)
                 execute(arglist);
