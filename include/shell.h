@@ -24,6 +24,6 @@ int handle_builtin(char** arglist);
 #define HISTORY_SIZE 50
 void add_to_history(const char* cmd);
 void print_history(void);
-char* history_expand(const char* cmdline);
+char* shell_history_expand(const char* cmdline);
 
 #endif // SHELL_H

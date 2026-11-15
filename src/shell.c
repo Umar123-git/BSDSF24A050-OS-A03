@@ -117,7 +117,7 @@ void print_history(void) {
     }
 }
 
-char* history_expand(const char* cmdline) {
+char* shell_history_expand(const char* cmdline) {
     char* end;
     long n = strtol(cmdline + 1, &end, 10);
     if (end == cmdline + 1 || *end != '\0') {
