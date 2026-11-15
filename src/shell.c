@@ -40,13 +40,13 @@ int handle_builtin(char** arglist) {
         printf("  exit        - terminate the shell\n");
         printf("  cd <dir>    - change working directory\n");
         printf("  help        - show this help message\n");
-        printf("  jobs        - show background jobs (not yet implemented)\n");
+        printf("  jobs        - list running background jobs\n");
         printf("  history     - show command history\n");
         return 1;
     }
 
     if (strcmp(arglist[0], "jobs") == 0) {
-        printf("Job control not yet implemented.\n");
+        print_jobs();
         return 1;
     }
 
@@ -90,6 +90,11 @@ char* shell_history_expand(const char* cmdline) {
     return strdup(history[n - 1]);
 }
 
+
+static int is_op_char(char c) {
+    return c == '<' || c == '>' || c == '|' || c == ';' || c == '&';
+}
+
 char** tokenize(char* cmdline) {
     if (cmdline == NULL) return NULL;
 
@@ -104,7 +109,7 @@ char** tokenize(char* cmdline) {
         char* tok = (char*)malloc(strlen(cp) + 2);
         int len = 0;
 
-        if (*cp == '<' || *cp == '>' || *cp == '|') {
+        if (is_op_char(*cp)) {
             tok[len++] = *cp++;            // operator is its own token
         } else {
             char quote = 0;
@@ -114,8 +119,7 @@ char** tokenize(char* cmdline) {
                     else tok[len++] = *cp++;
                 } else {
                     if (*cp == '"' || *cp == '\'') { quote = *cp; cp++; }
-                    else if (*cp == ' ' || *cp == '\t' ||
-                             *cp == '<' || *cp == '>' || *cp == '|') break;
+                    else if (*cp == ' ' || *cp == '\t' || is_op_char(*cp)) break;
                     else tok[len++] = *cp++;
                 }
             }
@@ -130,4 +134,36 @@ char** tokenize(char* cmdline) {
     }
     arglist[argnum] = NULL;
     return arglist;
+}
+
+// Tokenize a line, split it at ';' and '&', run each part in order
+int run_commandline(char* cmdline) {
+    char** tokens = tokenize(cmdline);
+    if (tokens == NULL) return 0;
+
+    int last_status = 0;
+    int i = 0;
+    while (tokens[i] != NULL) {
+        char* seg[MAXARGS + 1];
+        int n = 0;
+
+        while (tokens[i] != NULL && strcmp(tokens[i], ";") != 0 && strcmp(tokens[i], "&") != 0) {
+            seg[n++] = tokens[i++];
+        }
+
+        int background = 0;
+        if (tokens[i] != NULL) {
+            background = (strcmp(tokens[i], "&") == 0);
+            i++;                           // skip the ; or &
+        }
+        seg[n] = NULL;
+
+        if (n == 0) continue;              // empty part, e.g. ";;"
+        if (handle_builtin(seg)) continue;
+        last_status = execute(seg, background);
+    }
+
+    for (int k = 0; tokens[k] != NULL; k++) free(tokens[k]);
+    free(tokens);
+    return last_status;
 }

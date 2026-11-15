@@ -4,9 +4,12 @@
 
 int main() {
     char* cmdline;
-    char** arglist;
 
-    while ((cmdline = readline(PROMPT)) != NULL) {
+    while (1) {
+        reap_jobs();                       // collect finished background jobs
+        cmdline = readline(PROMPT);
+        if (cmdline == NULL) break;
+
         // !n: replace with n-th history command before tokenizing/storing
         if (cmdline[0] == '!') {
             char* expanded = shell_history_expand(cmdline);
@@ -17,20 +20,11 @@ int main() {
         }
 
         if (cmdline[0] != '\0') {
-            add_to_history(cmdline);   // our own history (history, !n)
-            add_history(cmdline);      // readline history (up/down arrows)
+            add_to_history(cmdline);       // our own history (history, !n)
+            add_history(cmdline);          // readline history (up/down arrows)
         }
 
-        if ((arglist = tokenize(cmdline)) != NULL) {
-            if (handle_builtin(arglist) == 0)
-                execute(arglist);
-
-            // Free the memory allocated by tokenize()
-            for (int i = 0; arglist[i] != NULL; i++) {
-                free(arglist[i]);
-            }
-            free(arglist);
-        }
+        run_commandline(cmdline);
         free(cmdline);
     }
 

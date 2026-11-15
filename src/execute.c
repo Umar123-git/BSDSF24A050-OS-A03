@@ -51,7 +51,7 @@ static int parse_commands(char** tokens, command_t cmds[], int* ncmds) {
     return 0;
 }
 
-int execute(char* arglist[]) {
+int execute(char* arglist[], int background) {
     command_t cmds[MAXCMDS];
     pid_t pids[MAXCMDS];
     int ncmds = 0;
@@ -109,6 +109,18 @@ int execute(char* arglist[]) {
     }
     if (prev_fd != -1) close(prev_fd);
 
+    if (background) {
+        if (started > 0) {
+            char cmdtext[128] = "";
+            for (int i = 0; arglist[i] != NULL; i++) {
+                strncat(cmdtext, arglist[i], sizeof(cmdtext) - strlen(cmdtext) - 1);
+                strncat(cmdtext, " ", sizeof(cmdtext) - strlen(cmdtext) - 1);
+            }
+            add_job(pids[started - 1], cmdtext);
+        }
+        return 0;                          // do NOT wait for background jobs
+    }
+
     int status = 0, last_status = 0;
     for (int i = 0; i < started; i++) {
         waitpid(pids[i], &status, 0);
@@ -116,4 +128,54 @@ int execute(char* arglist[]) {
             last_status = WIFEXITED(status) ? WEXITSTATUS(status) : 1;
     }
     return last_status;
+}
+
+#define MAXJOBS 64
+
+typedef struct {
+    int id;
+    pid_t pid;
+    char cmd[128];
+} job_t;
+
+static job_t jobs[MAXJOBS];
+static int njobs = 0;
+static int next_job_id = 1;
+
+void add_job(pid_t pid, const char* cmd) {
+    if (njobs == MAXJOBS) {
+        fprintf(stderr, "too many background jobs\n");
+        return;
+    }
+    jobs[njobs].id = next_job_id++;
+    jobs[njobs].pid = pid;
+    snprintf(jobs[njobs].cmd, sizeof(jobs[njobs].cmd), "%s", cmd);
+    printf("[%d] %d\n", jobs[njobs].id, (int)pid);
+    njobs++;
+}
+
+// Reap finished children without blocking (no zombies)
+void reap_jobs(void) {
+    int status;
+    pid_t pid;
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        for (int i = 0; i < njobs; i++) {
+            if (jobs[i].pid == pid) {
+                printf("[%d] Done    %s\n", jobs[i].id, jobs[i].cmd);
+                for (int j = i + 1; j < njobs; j++) jobs[j - 1] = jobs[j];
+                njobs--;
+                break;
+            }
+        }
+    }
+}
+
+void print_jobs(void) {
+    if (njobs == 0) {
+        printf("No background jobs.\n");
+        return;
+    }
+    for (int i = 0; i < njobs; i++) {
+        printf("[%d] %d Running  %s\n", jobs[i].id, (int)jobs[i].pid, jobs[i].cmd);
+    }
 }
