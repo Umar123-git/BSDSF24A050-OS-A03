@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <ctype.h>
 
 #define MAX_LEN 512
 #define MAXARGS 64
@@ -29,5 +30,10 @@ int handle_builtin(char** arglist);
 void add_to_history(const char* cmd);
 void print_history(void);
 char* shell_history_expand(const char* cmdline);
+
+int handle_variable(char** arglist);
+void set_var(const char* name, const char* value);
+const char* get_var(const char* name);
+void print_vars(void);
 
 #endif // SHELL_H
