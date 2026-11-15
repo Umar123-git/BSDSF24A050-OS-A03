@@ -19,47 +19,6 @@ char* read_cmd(char* prompt, FILE* fp) {
     return cmdline;
 }
 
-char** tokenize(char* cmdline) {
-    // Edge case: empty command line
-    if (cmdline == NULL || cmdline[0] == '\0' || cmdline[0] == '\n') {
-        return NULL;
-    }
-
-    char** arglist = (char**)malloc(sizeof(char*) * (MAXARGS + 1));
-    for (int i = 0; i < MAXARGS + 1; i++) {
-        arglist[i] = (char*)malloc(sizeof(char) * ARGLEN);
-        bzero(arglist[i], ARGLEN);
-    }
-
-    char* cp = cmdline;
-    char* start;
-    int len;
-    int argnum = 0;
-
-    while (*cp != '\0' && argnum < MAXARGS) {
-        while (*cp == ' ' || *cp == '\t') cp++; // Skip leading whitespace
-        
-        if (*cp == '\0') break; // Line was only whitespace
-
-        start = cp;
-        len = 1;
-        while (*++cp != '\0' && !(*cp == ' ' || *cp == '\t')) {
-            len++;
-        }
-        strncpy(arglist[argnum], start, len);
-        arglist[argnum][len] = '\0';
-        argnum++;
-    }
-
-    if (argnum == 0) { // No arguments were parsed
-        for(int i = 0; i < MAXARGS + 1; i++) free(arglist[i]);
-        free(arglist);
-        return NULL;
-    }
-
-    arglist[argnum] = NULL;
-    return arglist;
-}
 int handle_builtin(char** arglist) {
     if (arglist == NULL || arglist[0] == NULL) return 0;
 
@@ -129,4 +88,46 @@ char* shell_history_expand(const char* cmdline) {
         return NULL;
     }
     return strdup(history[n - 1]);
+}
+
+char** tokenize(char* cmdline) {
+    if (cmdline == NULL) return NULL;
+
+    char** arglist = (char**)malloc(sizeof(char*) * (MAXARGS + 1));
+    int argnum = 0;
+    char* cp = cmdline;
+
+    while (*cp != '\0' && argnum < MAXARGS) {
+        while (*cp == ' ' || *cp == '\t') cp++;
+        if (*cp == '\0') break;
+
+        char* tok = (char*)malloc(strlen(cp) + 2);
+        int len = 0;
+
+        if (*cp == '<' || *cp == '>' || *cp == '|') {
+            tok[len++] = *cp++;            // operator is its own token
+        } else {
+            char quote = 0;
+            while (*cp != '\0') {
+                if (quote) {
+                    if (*cp == quote) { quote = 0; cp++; }
+                    else tok[len++] = *cp++;
+                } else {
+                    if (*cp == '"' || *cp == '\'') { quote = *cp; cp++; }
+                    else if (*cp == ' ' || *cp == '\t' ||
+                             *cp == '<' || *cp == '>' || *cp == '|') break;
+                    else tok[len++] = *cp++;
+                }
+            }
+        }
+        tok[len] = '\0';
+        arglist[argnum++] = tok;
+    }
+
+    if (argnum == 0) {
+        free(arglist);
+        return NULL;
+    }
+    arglist[argnum] = NULL;
+    return arglist;
 }
