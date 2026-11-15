@@ -82,6 +82,7 @@ int handle_builtin(char** arglist) {
         printf("  cd <dir>    - change working directory\n");
         printf("  help        - show this help message\n");
         printf("  jobs        - show background jobs (not yet implemented)\n");
+        printf("  history     - show command history\n");
         return 1;
     }
 
@@ -90,5 +91,42 @@ int handle_builtin(char** arglist) {
         return 1;
     }
 
+    if (strcmp(arglist[0], "history") == 0) {
+        print_history();
+        return 1;
+    }
+
     return 0;
+}
+
+static char* history[HISTORY_SIZE];
+static int history_count = 0;
+
+void add_to_history(const char* cmd) {
+    if (history_count == HISTORY_SIZE) {
+        free(history[0]);
+        for (int i = 1; i < HISTORY_SIZE; i++) history[i - 1] = history[i];
+        history_count--;
+    }
+    history[history_count++] = strdup(cmd);
+}
+
+void print_history(void) {
+    for (int i = 0; i < history_count; i++) {
+        printf("%d  %s\n", i + 1, history[i]);
+    }
+}
+
+char* history_expand(const char* cmdline) {
+    char* end;
+    long n = strtol(cmdline + 1, &end, 10);
+    if (end == cmdline + 1 || *end != '\0') {
+        fprintf(stderr, "!: invalid usage, use !n\n");
+        return NULL;
+    }
+    if (n < 1 || n > history_count) {
+        fprintf(stderr, "!%ld: event not found\n", n);
+        return NULL;
+    }
+    return strdup(history[n - 1]);
 }
